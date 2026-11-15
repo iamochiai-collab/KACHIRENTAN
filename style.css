@@ -225,3 +225,15 @@ table.sc .av{width:32px;height:32px}
 .theme-tag.deep{background:#d93a2f}
 .seg.kind button.deep.on{background:#d93a2f;color:#fff}
 .online-badge.deep{background:#d93a2f;color:#fff}
+
+/* ===== iPhoneの画面上部（時計・電池の部分）とかぶらないように ===== */
+#app{
+  padding-top:calc(env(safe-area-inset-top, 0px) + 22px);
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 40px);
+  padding-left:calc(env(safe-area-inset-left, 0px) + 14px);
+  padding-right:calc(env(safe-area-inset-right, 0px) + 14px);
+}
+.sticky-btn{bottom:calc(env(safe-area-inset-bottom, 0px) + 12px)}
+.anscard{top:calc(env(safe-area-inset-top, 0px) + 8px)}
+.toast{top:calc(env(safe-area-inset-top, 0px) + 20px)}
+.modal{padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 28px)}
