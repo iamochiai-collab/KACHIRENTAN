@@ -213,3 +213,9 @@ table.sc .av{width:32px;height:32px}
 .avgrid button .av{width:100%;height:auto;aspect-ratio:1;margin:0}
 .avgrid button.on{border-color:var(--red);background:#fff3c4}
 .avgrid button:disabled{opacity:.2}
+
+/* ===== イラスト ===== */
+.hero-horse{display:block;width:210px;max-width:60%;margin:0 auto 6px;animation:gallop .45s infinite alternate;filter:drop-shadow(0 4px 0 rgba(0,0,0,.18))}
+.mode img.ic{width:84px;height:64px;object-fit:contain;flex:none}
+.em-horse{width:120px;animation:gallop .45s infinite alternate}
+.cover-pass{display:block;width:170px;margin:0 auto 4px;background:var(--cream);border-radius:28px;padding:14px 18px}

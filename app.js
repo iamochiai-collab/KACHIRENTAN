@@ -12,6 +12,7 @@ const LCOL = [["#ffffff","#333","#bbb"],["#222","#fff","#222"],["#d7263d","#fff"
 const MAX_ONLINE = 10;
 // プレイヤーの顔アイコン（img/av/av-01.png 〜 av-32.png）
 const AVATARS = Array.from({length:32},(_,i)=>"av"+String(i+1).padStart(2,"0"));
+const imgSrc = n => (window.IMG_DATA&&window.IMG_DATA[n]) || `img/${n}.png`;
 const avSrc = v => (window.AV_DATA&&window.AV_DATA[v]) || `img/av/av-${String(v||"av01").slice(2)}.png`;
 const avHTML = (v,cls="") => `<img class="av ${cls}" src="${avSrc(AVATARS.includes(v)?v:"av01")}" alt="">`;
 const pickAv = used => { const u=new Set(used); const free=AVATARS.filter(a=>!u.has(a)); return shuffle(free.length?free:AVATARS)[0]; };
@@ -191,12 +192,12 @@ function viewHome(){
   scrollTop();
   app.innerHTML=`
   <div class="hero">
-    <div class="horse">🏇</div>
+    <img class="hero-horse" src="${imgSrc("horse")}" alt="">
     <div class="logo">カチ<span>レン</span>タン</div>
     <div class="tag">あの人の価値観、当てられる？</div>
   </div>
-  <button class="mode" id="mOnline"><span class="ic">📱📱</span><div><b>みんなのスマホで</b><span>部屋を作って、URLを送って集まる（2〜${MAX_ONLINE}人）</span></div></button>
-  <button class="mode" id="mPass"><span class="ic">🔄</span><div><b>1台を回して遊ぶ</b><span>スマホ1台を手わたしで（2〜6人）</span></div></button>
+  <button class="mode" id="mOnline"><img class="ic" src="${imgSrc("online")}" alt=""><div><b>みんなのスマホで</b><span>部屋を作って、URLを送って集まる（2〜${MAX_ONLINE}人）</span></div></button>
+  <button class="mode" id="mPass"><img class="ic" src="${imgSrc("pass")}" alt=""><div><b>1台を回して遊ぶ</b><span>スマホ1台を手わたしで（2〜6人）</span></div></button>
   <button class="btn ghost" id="rules">あそびかた</button>`;
   $("mOnline").onclick=()=>{
     // claude.ai のページ版では通信できないので、公開サイトへ案内
@@ -314,7 +315,7 @@ const P = (()=>{
   function viewHandoff(pi){
     scrollTop();
     app.innerHTML=`${header()}
-    <div class="cover"><div class="big">🙈</div><div class="who">決まりました！</div>${avHTML(S.players[pi].av,"av-big")}
+    <div class="cover"><img class="cover-pass" src="${imgSrc("pass")}" alt=""><div class="who">決まりました！</div>${avHTML(S.players[pi].av,"av-big")}
       <p>画面をかくして、<br><b style="font-size:20px">${esc(S.players[pi].name)}</b> さんにわたしてね</p>
       <div class="gap"></div><button class="btn gold" id="open">わたした！</button></div>`;
     bindHeader();
@@ -723,7 +724,7 @@ function vGuess(R){
   const who = q===me ? "あなたの答えを、みんなが予想中…" : g[me] ? "予想を出しました！ほかの人を待ってね" : "観戦中です";
   return { html:`
   ${bannerHTML("今回の出題者",qn,`お題：${esc(s.theme.q)}`,avOf(R,q))}
-  <div class="card wait"><span class="em">🏇</span><p>${who}</p><p class="muted">${done} / ${guessers.length} 人が予想ずみ</p></div>
+  <div class="card wait"><img class="em-horse" src="${imgSrc("horse")}" alt=""><p>${who}</p><p class="muted">${done} / ${guessers.length} 人が予想ずみ</p></div>
   <div class="card"><ul class="plist">${guessers.map(p=>`<li class="${isOnline(R,p)?"":"off"}"><span class="dot"></span>${avHTML(avOf(R,p))}${esc(nameOf(R,p))}${g[p]?`<span class="tag ok">✅ 予想ずみ</span>`:isOnline(R,p)?`<span class="tag">⏳ 考え中</span>`:`<span class="tag">おやすみ</span>`}</li>`).join("")}</ul></div>
   ${canForce&&done<guessers.length?`<button class="btn ghost small" id="force">待たずに結果発表へ</button>`:""}`,
   bind(){ const f=$("force"); if(f) f.onclick=()=>O.be.update(O.id,{"state/phase":"reveal","state/step":0}); } };
