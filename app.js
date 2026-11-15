@@ -10,6 +10,25 @@ const LET = ["A","B","C","D","E","F","G"];
 const RK = ["1着","2着","3着"];
 const LCOL = [["#ffffff","#333","#bbb"],["#222","#fff","#222"],["#d7263d","#fff","#d7263d"],["#1d4ed8","#fff","#1d4ed8"],["#f5d90a","#333","#e0c400"],["#2f9e44","#fff","#2f9e44"],["#f08c2e","#fff","#f08c2e"]];
 const MAX_ONLINE = 10;
+// プレイヤーの顔アイコン（img/av/av-01.png 〜 av-32.png）
+const AVATARS = Array.from({length:32},(_,i)=>"av"+String(i+1).padStart(2,"0"));
+const avSrc = v => (window.AV_DATA&&window.AV_DATA[v]) || `img/av/av-${String(v||"av01").slice(2)}.png`;
+const avHTML = (v,cls="") => `<img class="av ${cls}" src="${avSrc(AVATARS.includes(v)?v:"av01")}" alt="">`;
+const pickAv = used => { const u=new Set(used); const free=AVATARS.filter(a=>!u.has(a)); return shuffle(free.length?free:AVATARS)[0]; };
+// アイコンをえらぶ画面
+function showAvPicker(current, used, onPick){
+  const bg=document.createElement("div"); bg.className="modal-bg";
+  const u=new Set(used);
+  bg.innerHTML=`<div class="modal"><h2>アイコンをえらぶ</h2>
+    <div class="avgrid">${AVATARS.map(a=>`<button data-av="${a}" class="${a===current?"on":""}" ${u.has(a)&&a!==current?"disabled":""}>${avHTML(a)}</button>`).join("")}</div>
+    <div class="gap"></div><button class="btn ghost" id="closeAv">とじる</button></div>`;
+  document.body.appendChild(bg);
+  bg.addEventListener("click",e=>{
+    const b=e.target.closest("[data-av]");
+    if(b && !b.disabled){ bg.remove(); onPick(b.dataset.av); return; }
+    if(e.target===bg||e.target.id==="closeAv") bg.remove();
+  });
+}
 
 // ===================== 共通 =====================
 const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -70,8 +89,8 @@ function confetti(){
 }
 
 // ---------- 画面パーツ ----------
-function bannerHTML(top, name, sub){
-  return `<div class="qbanner"><small>${top}</small><div class="qn">${esc(name)}<span>さん</span></div>${sub?`<div class="sub">${sub}</div>`:""}</div>`;
+function bannerHTML(top, name, sub, av){
+  return `<div class="qbanner"><small>${top}</small>${av?avHTML(av,"bav"):""}<div class="qn">${esc(name)}<span>さん</span></div>${sub?`<div class="sub">${sub}</div>`:""}</div>`;
 }
 function themeCardHTML(theme, tag){
   return `<div class="card">
@@ -127,7 +146,7 @@ function cellHTML(theme, x, r, open, cls, isNew){
   if(!open) return `<div class="cell"><div class="rk">${RK[r]}</div><div class="q">？</div></div>`;
   return `<div class="cell ${cls} ${isNew?"pop":""}"><div class="rk">${RK[r]}</div><div class="v">${letB(x,"mini")}${esc(theme.opts[x])}</div></div>`;
 }
-function ticketHTML(theme, name, g, answer, step){
+function ticketHTML(theme, name, g, answer, step, av){
   const openAns=[0,1,2].filter(r=>step>=A_OPEN[r]).map(r=>answer[r]);
   let head="<small>三連単 投票券</small>";
   if(step>=6){
@@ -144,12 +163,12 @@ function ticketHTML(theme, name, g, answer, step){
     return cellHTML(theme,x,r,open,cls,step===G_OPEN[r]);
   }).join("");
   return `<div class="ticket"><div class="perf"></div>
-    <div class="th"><span>${esc(name)} の予想</span>${head}</div>
+    <div class="th"><span>${av?avHTML(av):""}${esc(name)} の予想</span>${head}</div>
     <div class="tb">${cells}</div></div>`;
 }
-function answerCardHTML(theme, qName, answer, step){
+function answerCardHTML(theme, qName, answer, step, av){
   const cells=[0,1,2].map(r=>cellHTML(theme,answer[r],r,step>=A_OPEN[r],"",step===A_OPEN[r])).join("");
-  return `<div class="anscard"><div class="ah"><span>🏁 正解</span><b>${esc(qName)}さんの答え</b></div><div class="tb">${cells}</div></div>`;
+  return `<div class="anscard"><div class="ah"><span>🏁 正解</span><b>${av?avHTML(av):""}${esc(qName)}さんの答え</b></div><div class="tb">${cells}</div></div>`;
 }
 // list: [{id,name,score,plus?,note?}]
 function ranked(list){
@@ -158,12 +177,12 @@ function ranked(list){
   return arr;
 }
 function scoreTableHTML(r){
-  return `<table class="sc">${r.map(p=>`<tr class="${p.rank===1?"lead":""}"><td><span class="rkb ${p.rank<=3?"g"+p.rank:""}">${p.rank}</span>${esc(p.name)}${p.note?` <span class="muted">${p.note}</span>`:""}</td><td class="p">${p.score}<span style="font-size:13px">点</span> ${p.plus?`<small>+${p.plus}</small>`:""}</td></tr>`).join("")}</table>`;
+  return `<table class="sc">${r.map(p=>`<tr class="${p.rank===1?"lead":""}"><td><span class="rkb ${p.rank<=3?"g"+p.rank:""}">${p.rank}</span>${p.av?avHTML(p.av):""}${esc(p.name)}${p.note?` <span class="muted">${p.note}</span>`:""}</td><td class="p">${p.score}<span style="font-size:13px">点</span> ${p.plus?`<small>+${p.plus}</small>`:""}</td></tr>`).join("")}</table>`;
 }
 function podiumHTML(r){
   const top=[1,0,2].map(k=>r[k]).filter(Boolean);
   return `<div class="hero" style="padding:16px 0 4px"><div class="logo" style="font-size:34px">🏆 最終結果</div></div>
-  <div class="podium">${top.map(p=>`<div class="pod p${Math.min(p.rank,3)}"><div class="nm">${p.rank===1?"👑<br>":""}${esc(p.name)}</div><div class="blk">${p.rank}<small>${p.score}点</small></div></div>`).join("")}</div>
+  <div class="podium">${top.map(p=>`<div class="pod p${Math.min(p.rank,3)}"><div class="nm">${p.rank===1?"👑":""}${p.av?avHTML(p.av,"pav"):""}${esc(p.name)}</div><div class="blk">${p.rank}<small>${p.score}点</small></div></div>`).join("")}</div>
   <div class="card">${scoreTableHTML(r)}</div>`;
 }
 
@@ -179,7 +198,11 @@ function viewHome(){
   <button class="mode" id="mOnline"><span class="ic">📱📱</span><div><b>みんなのスマホで</b><span>部屋を作って、URLを送って集まる（2〜${MAX_ONLINE}人）</span></div></button>
   <button class="mode" id="mPass"><span class="ic">🔄</span><div><b>1台を回して遊ぶ</b><span>スマホ1台を手わたしで（2〜6人）</span></div></button>
   <button class="btn ghost" id="rules">あそびかた</button>`;
-  $("mOnline").onclick=()=>viewOnlineEntry("");
+  $("mOnline").onclick=()=>{
+    // claude.ai のページ版では通信できないので、公開サイトへ案内
+    if(window.PASS_ONLY){ location.href="https://iamochiai-collab.github.io/KACHIRENTAN/"; return; }
+    viewOnlineEntry("");
+  };
   $("mPass").onclick=P.viewSetup;
   $("rules").onclick=showRules;
 }
@@ -188,9 +211,12 @@ function viewHome(){
 //  1台を回して遊ぶモード
 // =====================================================
 const P = (()=>{
-  const S = { names: store.get("srt_names",["",""]), laps:1, players:[], round:0, totalRounds:0,
+  const S = { names: store.get("srt_names",["",""]), avs: store.get("krt_avs",[]), laps:1, players:[], round:0, totalRounds:0,
     deck:[], theme:null, answer:[], guesses:{}, order:[], gi:0, pick:[], revealStep:0, roundPts:{} };
   if(!Array.isArray(S.names)||S.names.length<2) S.names=["",""];
+  if(!Array.isArray(S.avs)) S.avs=[];
+  const fixAvs=()=>{ S.avs.length=Math.min(S.avs.length,S.names.length); for(let i=0;i<S.names.length;i++){ if(!AVATARS.includes(S.avs[i])||S.avs.indexOf(S.avs[i])<i) S.avs[i]=pickAv(S.avs.filter((_,k)=>k!==i)); } };
+  const qAv=()=>S.players[qIdx()].av;
   const qIdx=()=>S.round % S.players.length;
   const qName=()=>S.players[qIdx()].name;
   const header=()=>`<div class="bar"><span class="race">第${S.round+1}レース / 全${S.totalRounds}</span><button class="iconbtn" id="hrules">ルール</button></div>`;
@@ -198,8 +224,9 @@ const P = (()=>{
 
   function viewSetup(){
     scrollTop();
+    fixAvs();
     const rows=S.names.map((n,i)=>`
-      <div class="player-row"><div class="num">${i+1}</div>
+      <div class="player-row"><button class="avbtn" data-avi="${i}">${avHTML(S.avs[i])}</button>
         <input data-i="${i}" maxlength="8" placeholder="プレイヤー${i+1}" value="${esc(n)}">
         ${S.names.length>2?`<button class="del" data-del="${i}">×</button>`:""}</div>`).join("");
     app.innerHTML=`
@@ -212,14 +239,15 @@ const P = (()=>{
     <button class="btn" id="start">スタート！</button>`;
     $("back").onclick=viewHome;
     app.querySelectorAll("input[data-i]").forEach(inp=>inp.oninput=()=>{S.names[+inp.dataset.i]=inp.value;});
-    app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{S.names.splice(+b.dataset.del,1);viewSetup();});
+    app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{S.names.splice(+b.dataset.del,1);S.avs.splice(+b.dataset.del,1);viewSetup();});
+    app.querySelectorAll("[data-avi]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.avi; showAvPicker(S.avs[i],S.avs,a=>{ S.avs[i]=a; store.set("krt_avs",S.avs); viewSetup(); }); });
     const add=$("add"); if(add) add.onclick=()=>{S.names.push("");viewSetup(); const ins=app.querySelectorAll("input[data-i]"); ins[ins.length-1].focus();};
     app.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{S.laps=+b.dataset.l;viewSetup();});
     $("start").onclick=()=>{
       const names=S.names.map((n,i)=>n.trim()||`プレイヤー${i+1}`);
       if(new Set(names).size!==names.length){ toast("同じ名前があります"); return; }
-      S.names=names; store.set("srt_names",names);
-      S.players=names.map(n=>({name:n,score:0}));
+      S.names=names; store.set("srt_names",names); store.set("krt_avs",S.avs);
+      S.players=names.map((n,i)=>({name:n,score:0,av:S.avs[i]}));
       S.round=0; S.totalRounds=names.length*S.laps; S.deck=shuffle(THEMES.map((_,i)=>i));
       startRound();
     };
@@ -238,7 +266,7 @@ const P = (()=>{
   function viewCover(pi, isQ, next){
     scrollTop();
     app.innerHTML=`${header()}
-    <div class="cover"><div class="big">📱</div>
+    <div class="cover">${avHTML(S.players[pi].av,"av-big")}
       <div class="who"><b>${esc(S.players[pi].name)}</b> さん</div>
       <p>${isQ?"今回の出題者です。スマホを受け取ってね":`<b style="font-size:22px;background:#fff;color:var(--turf-dark);padding:2px 10px;border-radius:8px">${esc(qName())}さん</b> のトップ3を<br>予想する番です`}<br>（ほかの人は画面を見ないでね）</p>
       <div class="gap"></div>
@@ -247,7 +275,7 @@ const P = (()=>{
   }
   function viewTheme(){
     scrollTop();
-    app.innerHTML=`${header()}${bannerHTML("今回の出題者",qName(),"お題を決めてね")}
+    app.innerHTML=`${header()}${bannerHTML("今回の出題者",qName(),"お題を決めてね",qAv())}
     ${themeCardHTML(S.theme, S.theme.custom?"オリジナルお題":"今回のお題")}
     <button class="btn" id="ok">このお題で決める</button><div class="gap"></div>
     <div class="row"><button class="btn ghost small" id="redraw">🔄 引き直す</button><button class="btn ghost small" id="custom">✏️ 自分で作る</button></div>`;
@@ -267,7 +295,7 @@ const P = (()=>{
     const y=window.scrollY;
     const name=S.players[pi].name;
     app.innerHTML=`${header()}
-    ${isQ?bannerHTML("出題者",qName(),"自分の本当の気持ちで答えてね"):bannerHTML("この人のトップ3を予想！",qName(),`予想する人：${esc(name)}さん`)}
+    ${isQ?bannerHTML("出題者",qName(),"自分の本当の気持ちで答えてね",qAv()):bannerHTML("この人のトップ3を予想！",qName(),`予想する人：${avHTML(S.players[pi].av)}${esc(name)}さん`,qAv())}
     ${pickHTML(S.theme,S.pick,isQ?"1着→2着→3着の順にタップしてね。":`<b>${esc(qName())}</b>さんなら、どれを選ぶ？ 1着→2着→3着の順にタップ。`)}
     <button class="btn" id="ok" ${S.pick.length<3?"disabled":""}>${isQ?"これで決定！":"この馬券で勝負！"}</button>
     <div class="gap"></div><button class="btn ghost small" id="clear">リセット</button>`;
@@ -286,7 +314,7 @@ const P = (()=>{
   function viewHandoff(pi){
     scrollTop();
     app.innerHTML=`${header()}
-    <div class="cover"><div class="big">🙈</div><div class="who">決まりました！</div>
+    <div class="cover"><div class="big">🙈</div><div class="who">決まりました！</div>${avHTML(S.players[pi].av,"av-big")}
       <p>画面をかくして、<br><b style="font-size:20px">${esc(S.players[pi].name)}</b> さんにわたしてね</p>
       <div class="gap"></div><button class="btn gold" id="open">わたした！</button></div>`;
     bindHeader();
@@ -295,10 +323,10 @@ const P = (()=>{
   function viewReveal(){
     const step=S.revealStep, done=step>=6;
     app.innerHTML=`${header()}
-    ${step===0?bannerHTML("結果発表！",qName(),"の答えは…？"):""}
+    ${step===0?bannerHTML("結果発表！",qName(),"の答えは…？",qAv()):""}
     <p class="theme-mini">お題：${esc(S.theme.q)}</p>
-    ${answerCardHTML(S.theme,qName(),S.answer,step)}
-    ${S.order.map(pi=>ticketHTML(S.theme,S.players[pi].name,S.guesses[pi],S.answer,step)).join("")}
+    ${answerCardHTML(S.theme,qName(),S.answer,step,qAv())}
+    ${S.order.map(pi=>ticketHTML(S.theme,S.players[pi].name,S.guesses[pi],S.answer,step,S.players[pi].av)).join("")}
     <div class="sticky-btn">${done?`<button class="btn" id="next">得点を見る</button>`:`<button class="btn ${step%2===1?"gold":""}" id="next">${REVEAL_LABELS[step]}</button>`}</div>`;
     bindHeader();
     if(done){
@@ -313,18 +341,18 @@ const P = (()=>{
   function viewScore(){
     scrollTop();
     const last=S.round+1>=S.totalRounds;
-    const r=ranked(S.players.map((p,i)=>({name:p.name,score:p.score,plus:S.roundPts[i],note:i===qIdx()?"(出題)":""})));
+    const r=ranked(S.players.map((p,i)=>({name:p.name,av:p.av,score:p.score,plus:S.roundPts[i],note:i===qIdx()?"(出題)":""})));
     app.innerHTML=`${header()}
     <div class="card"><h2>📋 第${S.round+1}レース 終了</h2>${scoreTableHTML(r)}</div>
     ${last?`<button class="btn gold" id="next">🏆 最終結果へ</button>`:
-      `<p class="center" style="color:#fff;font-weight:900">次の出題者は <span style="background:var(--gold);color:#3b2a00;padding:2px 10px;border-radius:8px">${esc(S.players[(S.round+1)%S.players.length].name)}</span> さん</p>
+      `<p class="center" style="color:#fff;font-weight:900">次の出題者は <span style="background:var(--gold);color:#3b2a00;padding:2px 10px;border-radius:8px">${avHTML(S.players[(S.round+1)%S.players.length].av)}${esc(S.players[(S.round+1)%S.players.length].name)}</span> さん</p>
        <button class="btn" id="next">次のレースへ</button>`}`;
     bindHeader();
     $("next").onclick=()=>{ if(last) viewFinal(); else { S.round++; startRound(); } };
   }
   function viewFinal(){
     scrollTop();
-    app.innerHTML=`${podiumHTML(ranked(S.players.map(p=>({name:p.name,score:p.score}))))}
+    app.innerHTML=`${podiumHTML(ranked(S.players.map(p=>({name:p.name,av:p.av,score:p.score}))))}
     <button class="btn" id="again">同じメンバーでもう一回</button><div class="gap"></div>
     <button class="btn ghost" id="home">タイトルへ</button>`;
     confetti();
@@ -443,7 +471,7 @@ async function createRoom(name){
     const pid=myPid(id);
     await O.be.set(id,{
       createdAt:Date.now(), host:pid, settings:{laps:1},
-      players:{[pid]:{name,joinedAt:Date.now(),online:true}},
+      players:{[pid]:{name,av:pickAv([]),joinedAt:Date.now(),online:true}},
       state:{phase:"lobby"}
     });
     enterRoom(id);
@@ -463,8 +491,9 @@ async function joinRoom(id,name){
     }
     if(!ps[pid] && Object.keys(ps).length>=MAX_ONLINE){ toast(`満員です（${MAX_ONLINE}人まで）`); return; }
     const patch={};
-    if(ps[pid]){ patch[`players/${pid}/name`]=name; patch[`players/${pid}/online`]=true; }
-    else patch[`players/${pid}`]={name,joinedAt:Date.now(),online:true};
+    const usedAv=Object.entries(ps).filter(([k,p])=>k!==pid&&p.online!==false).map(([k,p])=>p.av);
+    if(ps[pid]){ patch[`players/${pid}/name`]=name; patch[`players/${pid}/online`]=true; if(!ps[pid].av) patch[`players/${pid}/av`]=pickAv(usedAv); }
+    else patch[`players/${pid}`]={name,av:pickAv(usedAv),joinedAt:Date.now(),online:true};
     await O.be.update(id,patch);
     enterRoom(id);
   }catch(e){ console.error(e); toast("部屋に入れませんでした"); }
@@ -497,6 +526,7 @@ function leaveRoom(){
 const allPlayers = R => Object.entries(R.players||{}).map(([id,p])=>({id,...p})).sort((a,b)=>a.joinedAt-b.joinedAt);
 const onlinePlayers = R => allPlayers(R).filter(p=>p.online!==false);
 const nameOf = (R,pid) => (R.players&&R.players[pid]&&R.players[pid].name) || "（退出した人）";
+const avOf = (R,pid) => (R.players&&R.players[pid]&&R.players[pid].av) || "av01";
 const isOnline = (R,pid) => !!(R.players&&R.players[pid]&&R.players[pid].online!==false);
 const ST = R => R.state||{phase:"lobby"};
 const qPidOf = R => { const s=ST(R); return s.order ? s.order[s.round % s.order.length] : null; };
@@ -509,7 +539,7 @@ function onlineHeader(R){
 }
 function scoreList(R, withPlus){
   const s=ST(R), sc=R.scores||{}, last=s.last||{}, q=qPidOf(R);
-  return ranked((s.order||[]).map(pid=>({id:pid,name:nameOf(R,pid),score:sc[pid]||0,plus:withPlus?last[pid]:0,note:withPlus&&pid===q?"(出題)":(!isOnline(R,pid)?"(おやすみ)":"")})));
+  return ranked((s.order||[]).map(pid=>({id:pid,name:nameOf(R,pid),av:avOf(R,pid),score:sc[pid]||0,plus:withPlus?last[pid]:0,note:withPlus&&pid===q?"(出題)":(!isOnline(R,pid)?"(おやすみ)":"")})));
 }
 
 function renderOnline(){
@@ -570,7 +600,8 @@ function vLobby(R){
   </div>
   <div class="card">
     <h2>参加者（${on.length}人）</h2>
-    <ul class="plist">${ps.map(p=>`<li class="${p.online===false?"off":""}"><span class="dot"></span>${R.host===p.id?"👑 ":""}${esc(p.name)}${p.id===O.pid?`<span class="tag me">あなた</span>`:p.online===false?`<span class="tag">おやすみ</span>`:""}</li>`).join("")}</ul>
+    <ul class="plist">${ps.map(p=>`<li class="${p.online===false?"off":""}"><span class="dot"></span>${p.id===O.pid?`<button class="avbtn" id="myav">${avHTML(p.av)}</button>`:avHTML(p.av)}${R.host===p.id?"👑":""}${esc(p.name)}${p.id===O.pid?`<span class="tag me">あなた</span>`:p.online===false?`<span class="tag">おやすみ</span>`:""}</li>`).join("")}</ul>
+    <p class="muted" style="margin:8px 0 0">自分のアイコンをタップすると変えられます</p>
   </div>
   ${host?`
   <div class="card"><h2>何周する？</h2>
@@ -583,6 +614,7 @@ function vLobby(R){
   bind(){
     $("copy").onclick=async()=>{ try{ await navigator.clipboard.writeText(url); toast("コピーしました"); }catch(e){ $("url").select(); toast("長押しでコピーしてね"); } };
     $("leave").onclick=leaveRoom;
+    $("myav").onclick=()=>{ const used=onlinePlayers(R).filter(p=>p.id!==O.pid).map(p=>p.av); showAvPicker(avOf(R,O.pid),used,a=>O.be.update(O.id,{[`players/${O.pid}/av`]:a})); };
     const t=$("takeover"); if(t) t.onclick=()=>O.be.update(O.id,{host:O.pid});
     if(host){
       app.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>O.be.update(O.id,{"settings/laps":+b.dataset.l}));
@@ -619,7 +651,7 @@ function vAnswer(R){
   if(q!==O.pid){
     const host=R.host===O.pid, qOff=!isOnline(R,q);
     return { html:`
-    ${bannerHTML("今回の出題者",qn,"お題を選んで、答えを考えています")}
+    ${bannerHTML("今回の出題者",qn,"お題を選んで、答えを考えています",avOf(R,q))}
     <div class="card wait"><span class="em">🤔</span><p>${esc(qn)}さんの答えを待ってね</p></div>
     <div class="card"><h2>いまの得点</h2>${scoreTableHTML(scoreList(R,false))}</div>
     ${host&&qOff?`<button class="btn ghost small" id="skip">${esc(qn)}さんがいないので とばす</button>`:""}`,
@@ -638,7 +670,7 @@ function vAnswer(R){
   }
   if(L.stage==="pick"){
     return { html:`
-    ${bannerHTML("出題者",qn,"自分の本当の気持ちで答えてね")}
+    ${bannerHTML("出題者",qn,"自分の本当の気持ちで答えてね",avOf(R,q))}
     ${pickHTML(L.draft,L.pick,"1着→2着→3着の順にタップしてね。（ほかの人には見えません）")}
     <button class="btn" id="ok" ${L.pick.length<3?"disabled":""}>これで決定！</button>
     <div class="gap"></div>
@@ -655,7 +687,7 @@ function vAnswer(R){
     }};
   }
   return { html:`
-  ${bannerHTML("今回の出題者はあなた",qn,"お題を決めてね")}
+  ${bannerHTML("今回の出題者はあなた",qn,"お題を決めてね",avOf(R,q))}
   ${themeCardHTML(L.draft, L.draft.custom?"オリジナルお題":"今回のお題")}
   <button class="btn" id="ok">このお題で決める</button><div class="gap"></div>
   <div class="row"><button class="btn ghost small" id="redraw">🔄 引き直す</button><button class="btn ghost small" id="custom">✏️ 自分で作る</button></div>`,
@@ -676,7 +708,7 @@ function vGuess(R){
   if(guessers.includes(me) && !g[me]){
     const pick=O.L.gpick;
     return { html:`
-    ${bannerHTML("この人のトップ3を予想！",qn,`予想する人：${esc(nameOf(R,me))}さん（あなた）`)}
+    ${bannerHTML("この人のトップ3を予想！",qn,`予想する人：${avHTML(avOf(R,me))}${esc(nameOf(R,me))}さん（あなた）`,avOf(R,q))}
     ${pickHTML(s.theme,pick,`<b>${esc(qn)}</b>さんなら、どれを選ぶ？ 1着→2着→3着の順にタップ。`)}
     <button class="btn" id="ok" ${pick.length<3?"disabled":""}>この馬券で勝負！</button>
     <div class="gap"></div><button class="btn ghost small" id="clear">リセット</button>`,
@@ -690,9 +722,9 @@ function vGuess(R){
   const canForce=(R.host===me||q===me) && done>0;
   const who = q===me ? "あなたの答えを、みんなが予想中…" : g[me] ? "予想を出しました！ほかの人を待ってね" : "観戦中です";
   return { html:`
-  ${bannerHTML("今回の出題者",qn,`お題：${esc(s.theme.q)}`)}
+  ${bannerHTML("今回の出題者",qn,`お題：${esc(s.theme.q)}`,avOf(R,q))}
   <div class="card wait"><span class="em">🏇</span><p>${who}</p><p class="muted">${done} / ${guessers.length} 人が予想ずみ</p></div>
-  <div class="card"><ul class="plist">${guessers.map(p=>`<li class="${isOnline(R,p)?"":"off"}"><span class="dot"></span>${esc(nameOf(R,p))}${g[p]?`<span class="tag ok">✅ 予想ずみ</span>`:isOnline(R,p)?`<span class="tag">⏳ 考え中</span>`:`<span class="tag">おやすみ</span>`}</li>`).join("")}</ul></div>
+  <div class="card"><ul class="plist">${guessers.map(p=>`<li class="${isOnline(R,p)?"":"off"}"><span class="dot"></span>${avHTML(avOf(R,p))}${esc(nameOf(R,p))}${g[p]?`<span class="tag ok">✅ 予想ずみ</span>`:isOnline(R,p)?`<span class="tag">⏳ 考え中</span>`:`<span class="tag">おやすみ</span>`}</li>`).join("")}</ul></div>
   ${canForce&&done<guessers.length?`<button class="btn ghost small" id="force">待たずに結果発表へ</button>`:""}`,
   bind(){ const f=$("force"); if(f) f.onclick=()=>O.be.update(O.id,{"state/phase":"reveal","state/step":0}); } };
 }
@@ -713,10 +745,10 @@ function vReveal(R){
   if(ctrl) btn = done?`<button class="btn" id="next">得点を見る</button>`:`<button class="btn ${step%2===1?"gold":""}" id="next">${REVEAL_LABELS[step]}</button>`;
   else btn = `<div class="ctrl-wait">⏳ ${esc(nameOf(R,controllerOf(R)))}さんが${done?"得点を出すのを":"めくるのを"}待ってね</div>`;
   return { html:`
-  ${step===0?bannerHTML("結果発表！",qn,"の答えは…？"):""}
+  ${step===0?bannerHTML("結果発表！",qn,"の答えは…？",avOf(R,q)):""}
   <p class="theme-mini">お題：${esc(s.theme.q)}</p>
-  ${answerCardHTML(s.theme,qn,answer,step)}
-  ${players.map(p=>ticketHTML(s.theme,nameOf(R,p)+(p===O.pid?"（あなた）":""),g[p],answer,step)).join("")}
+  ${answerCardHTML(s.theme,qn,answer,step,avOf(R,q))}
+  ${players.map(p=>ticketHTML(s.theme,nameOf(R,p)+(p===O.pid?"（あなた）":""),g[p],answer,step,avOf(R,p))).join("")}
   <div class="sticky-btn">${btn}</div>`,
   bind(){
     const b=$("next"); if(!b) return;
@@ -736,7 +768,7 @@ function vScore(R){
   const nextQ=s.order[(s.round+1)%s.order.length];
   return { html:`
   <div class="card"><h2>📋 第${s.round+1}レース 終了</h2>${scoreTableHTML(scoreList(R,true))}</div>
-  ${!last?`<p class="center" style="color:#fff;font-weight:900">次の出題者は <span style="background:var(--gold);color:#3b2a00;padding:2px 10px;border-radius:8px">${esc(nameOf(R,nextQ))}</span> さん</p>`:""}
+  ${!last?`<p class="center" style="color:#fff;font-weight:900">次の出題者は <span style="background:var(--gold);color:#3b2a00;padding:2px 10px;border-radius:8px">${avHTML(avOf(R,nextQ))}${esc(nameOf(R,nextQ))}</span> さん</p>`:""}
   ${host?`<button class="btn ${last?"gold":""}" id="next">${last?"🏆 最終結果へ":"次のレースへ"}</button>`:
     `<div class="ctrl-wait">⏳ 👑${esc(nameOf(R,R.host))}さんが進めるのを待ってね</div>
      ${!isOnline(R,R.host)?`<div class="gap"></div><button class="btn gold small" id="takeover">ホストを引きつぐ</button>`:""}`}`,
