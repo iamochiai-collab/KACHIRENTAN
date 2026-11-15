@@ -6,6 +6,19 @@
 const $ = id => document.getElementById(id);
 const app = $("app");
 const THEMES = window.THEMES;
+const THEMES_DEEP = window.THEMES_DEEP || [];
+// お題の種類：ふつう / DEEP / ミックス
+const KINDS = [["normal","ふつう"],["deep","DEEP"],["mix","ミックス"]];
+const themeIds = kind => {
+  const n=THEMES.map((_,i)=>"n"+i), d=THEMES_DEEP.map((_,i)=>"d"+i);
+  return kind==="deep"?d : kind==="mix"?n.concat(d) : n;
+};
+const themeById = id => { const deep=id[0]==="d"; const t=(deep?THEMES_DEEP:THEMES)[+id.slice(1)]; return {q:t[0],opts:t[1].slice(),custom:false,deep,id}; };
+const kindLabel = k => (KINDS.find(x=>x[0]===k)||KINDS[0])[1];
+function kindSegHTML(cur){
+  return `<div class="seg kind">${KINDS.map(([k,l])=>`<button data-k="${k}" class="${cur===k?"on":""} ${k}">${l}</button>`).join("")}</div>
+  <p class="muted" style="margin:8px 0 0">${cur==="deep"?"🔥 DEEP：恋愛・お金・本音など、仲良しメンバー向けの深めのお題（"+THEMES_DEEP.length+"問）":cur==="mix"?"ふつうとDEEPがまざって出ます（"+(THEMES.length+THEMES_DEEP.length)+"問）":"だれとでも遊べるお題（"+THEMES.length+"問）"}</p>`;
+}
 const LET = ["A","B","C","D","E","F","G"];
 const RK = ["1着","2着","3着"];
 const LCOL = [["#ffffff","#333","#bbb"],["#222","#fff","#222"],["#d7263d","#fff","#d7263d"],["#1d4ed8","#fff","#1d4ed8"],["#f5d90a","#333","#e0c400"],["#2f9e44","#fff","#2f9e44"],["#f08c2e","#fff","#f08c2e"]];
@@ -95,15 +108,15 @@ function bannerHTML(top, name, sub, av){
 }
 function themeCardHTML(theme, tag){
   return `<div class="card">
-    <span class="theme-tag">${tag}</span>
-    <div class="theme-q">${esc(theme.q)}</div>
+    <span class="theme-tag ${theme.deep?"deep":""}">${theme.deep?"🔥 DEEP":tag}</span>
+    <div class="theme-q ${theme.deep?"deep":""}">${esc(theme.q)}</div>
     <div class="opts">${theme.opts.map((o,i)=>`<div class="opt static">${letB(i)}${esc(o)}</div>`).join("")}</div>
   </div>`;
 }
 function pickHTML(theme, pick, note){
   const slot=r=>{ const v=pick[r]; return `<div class="slot ${v!==undefined?"f s"+(r+1):""}" data-slot="${r}"><div class="rk">${RK[r]}</div><div class="v">${v!==undefined?letB(v,"mini")+esc(theme.opts[v]):"？"}</div></div>`; };
   return `<div class="card">
-    <div class="theme-q" style="margin-top:-6px">${esc(theme.q)}</div>
+    <div class="theme-q ${theme.deep?"deep":""}" style="margin-top:-6px">${esc(theme.q)}</div>
     <p class="muted" style="margin:6px 0 0">${note}</p>
     <div class="slots">${slot(0)}${slot(1)}${slot(2)}</div>
     <div class="opts">${theme.opts.map((o,i)=>{ const r=pick.indexOf(i); return `<button class="opt ${r>=0?"sel r"+(r+1):""}" data-o="${i}">${letB(i)}${esc(o)}${r>=0?`<span class="badge">${RK[r]}</span>`:""}</button>`; }).join("")}</div>
@@ -212,7 +225,7 @@ function viewHome(){
 //  1台を回して遊ぶモード
 // =====================================================
 const P = (()=>{
-  const S = { names: store.get("srt_names",["",""]), avs: store.get("krt_avs",[]), laps:1, players:[], round:0, totalRounds:0,
+  const S = { names: store.get("srt_names",["",""]), avs: store.get("krt_avs",[]), kind: store.get("krt_kind","normal"), laps:1, players:[], round:0, totalRounds:0,
     deck:[], theme:null, answer:[], guesses:{}, order:[], gi:0, pick:[], revealStep:0, roundPts:{} };
   if(!Array.isArray(S.names)||S.names.length<2) S.names=["",""];
   if(!Array.isArray(S.avs)) S.avs=[];
@@ -234,6 +247,7 @@ const P = (()=>{
     <div class="bar"><span class="race">1台モード</span><button class="iconbtn" id="back">← もどる</button></div>
     <div class="card"><h2>プレイヤー</h2>${rows}
       ${S.names.length<6?`<button class="btn ghost small" id="add">＋ プレイヤーを追加</button>`:`<p class="muted center">最大6人です</p>`}</div>
+    <div class="card"><h2>お題の種類</h2>${kindSegHTML(S.kind)}</div>
     <div class="card"><h2>何周する？</h2>
       <div class="seg">${[1,2,3].map(n=>`<button data-l="${n}" class="${S.laps===n?"on":""}">${n}周</button>`).join("")}</div>
       <p class="muted" style="margin:8px 0 0">1周 ＝ 全員が1回ずつ出題（${S.names.length*S.laps}レース）</p></div>
@@ -244,18 +258,19 @@ const P = (()=>{
     app.querySelectorAll("[data-avi]").forEach(b=>b.onclick=()=>{ const i=+b.dataset.avi; showAvPicker(S.avs[i],S.avs,a=>{ S.avs[i]=a; store.set("krt_avs",S.avs); viewSetup(); }); });
     const add=$("add"); if(add) add.onclick=()=>{S.names.push("");viewSetup(); const ins=app.querySelectorAll("input[data-i]"); ins[ins.length-1].focus();};
     app.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{S.laps=+b.dataset.l;viewSetup();});
+    app.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{S.kind=b.dataset.k;store.set("krt_kind",S.kind);viewSetup();});
     $("start").onclick=()=>{
       const names=S.names.map((n,i)=>n.trim()||`プレイヤー${i+1}`);
       if(new Set(names).size!==names.length){ toast("同じ名前があります"); return; }
       S.names=names; store.set("srt_names",names); store.set("krt_avs",S.avs);
       S.players=names.map((n,i)=>({name:n,score:0,av:S.avs[i]}));
-      S.round=0; S.totalRounds=names.length*S.laps; S.deck=shuffle(THEMES.map((_,i)=>i));
+      S.round=0; S.totalRounds=names.length*S.laps; S.deck=shuffle(themeIds(S.kind));
       startRound();
     };
   }
   function drawTheme(){
-    if(!S.deck.length) S.deck=shuffle(THEMES.map((_,i)=>i));
-    const t=THEMES[S.deck.pop()]; S.theme={q:t[0],opts:t[1].slice(),custom:false};
+    if(!S.deck.length) S.deck=shuffle(themeIds(S.kind));
+    S.theme=themeById(S.deck.pop());
   }
   function startRound(){
     S.answer=[]; S.guesses={}; S.pick=[]; S.revealStep=0; S.roundPts={};
@@ -357,7 +372,7 @@ const P = (()=>{
     <button class="btn" id="again">同じメンバーでもう一回</button><div class="gap"></div>
     <button class="btn ghost" id="home">タイトルへ</button>`;
     confetti();
-    $("again").onclick=()=>{ S.players.forEach(p=>p.score=0); S.round=0; S.deck=shuffle(THEMES.map((_,i)=>i)); startRound(); };
+    $("again").onclick=()=>{ S.players.forEach(p=>p.score=0); S.round=0; S.deck=shuffle(themeIds(S.kind)); startRound(); };
     $("home").onclick=viewHome;
   }
   return { viewSetup };
@@ -536,7 +551,7 @@ const guessersOf = R => { const s=ST(R), q=qPidOf(R); return (s.order||[]).filte
 function onlineHeader(R){
   const s=ST(R);
   const left = s.phase==="lobby" ? "ロビー" : s.phase==="final" ? "最終結果" : `第${s.round+1}レース / 全${s.total}`;
-  return `<div class="bar"><span class="race">${left}<span class="online-badge">部屋 ${esc(O.id)}</span></span><button class="iconbtn" id="hrules">ルール</button></div>`;
+  return `<div class="bar"><span class="race">${left}<span class="online-badge">部屋 ${esc(O.id)}</span>${s.phase!=="lobby"&&s.kind==="deep"?`<span class="online-badge deep">🔥DEEP</span>`:""}</span><button class="iconbtn" id="hrules">ルール</button></div>`;
 }
 function scoreList(R, withPlus){
   const s=ST(R), sc=R.scores||{}, last=s.last||{}, q=qPidOf(R);
@@ -588,7 +603,7 @@ function autoAdvance(R){
 
 // ---- ロビー ----
 function vLobby(R){
-  const ps=allPlayers(R), host=R.host===O.pid, laps=(R.settings&&R.settings.laps)||1;
+  const ps=allPlayers(R), host=R.host===O.pid, laps=(R.settings&&R.settings.laps)||1, kind=(R.settings&&R.settings.kind)||"normal";
   const on=onlinePlayers(R);
   const url=location.origin+location.pathname+"?room="+O.id;
   const hostOff=!isOnline(R,R.host);
@@ -605,11 +620,12 @@ function vLobby(R){
     <p class="muted" style="margin:8px 0 0">自分のアイコンをタップすると変えられます</p>
   </div>
   ${host?`
+  <div class="card"><h2>お題の種類</h2>${kindSegHTML(kind)}</div>
   <div class="card"><h2>何周する？</h2>
     <div class="seg">${[1,2,3].map(n=>`<button data-l="${n}" class="${laps===n?"on":""}">${n}周</button>`).join("")}</div>
     <p class="muted" style="margin:8px 0 0">1周 ＝ 全員が1回ずつ出題（${on.length*laps}レース）</p></div>
   <button class="btn" id="start" ${on.length<2?"disabled":""}>${on.length<2?"あと1人以上まってね":"スタート！"}</button>`:`
-  <div class="ctrl-wait">👑 ${esc(nameOf(R,R.host))}さんがスタートするのを待ってね（${laps}周）</div>
+  <div class="ctrl-wait">👑 ${esc(nameOf(R,R.host))}さんがスタートするのを待ってね<br>（お題：${kind==="deep"?"🔥 DEEP":kindLabel(kind)}・${laps}周）</div>
   ${hostOff?`<div class="gap"></div><button class="btn gold small" id="takeover">ホストを引きつぐ</button>`:""}`}
   <div class="gap"></div><button class="btn ghost small" id="leave">部屋を出る</button>`,
   bind(){
@@ -619,12 +635,13 @@ function vLobby(R){
     const t=$("takeover"); if(t) t.onclick=()=>O.be.update(O.id,{host:O.pid});
     if(host){
       app.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>O.be.update(O.id,{"settings/laps":+b.dataset.l}));
+      app.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>O.be.update(O.id,{"settings/kind":b.dataset.k}));
       $("start").onclick=()=>{
         const order=onlinePlayers(R).map(p=>p.id);
         if(order.length<2) return;
         const scores={}; order.forEach(p=>scores[p]=0);
         O.be.update(O.id,{
-          state:{phase:"answer",round:0,total:order.length*laps,order,used:[],gameId:Date.now()},
+          state:{phase:"answer",round:0,total:order.length*laps,order,used:[],kind,gameId:Date.now()},
           scores, answer:null, guesses:null
         });
       };
@@ -633,12 +650,12 @@ function vLobby(R){
 }
 
 function drawOnlineTheme(R){
-  const used=ST(R).used||[];
-  let pool=THEMES.map((_,i)=>i).filter(i=>!used.includes(i));
-  if(O.L.draft && !O.L.draft.custom) pool=pool.filter(i=>i!==O.L.draft.idx);
-  if(!pool.length) pool=THEMES.map((_,i)=>i);
+  const s=ST(R), used=s.used||[], all=themeIds(s.kind||"normal");
+  let pool=all.filter(i=>!used.includes(i));
+  if(O.L.draft && !O.L.draft.custom) pool=pool.filter(i=>i!==O.L.draft.id);
+  if(!pool.length) pool=all;
   const idx=pool[Math.floor(Math.random()*pool.length)];
-  return {q:THEMES[idx][0],opts:THEMES[idx][1].slice(),custom:false,idx};
+  return themeById(idx);
 }
 function nextRound(R){
   const s=ST(R), r=s.round+1;
@@ -682,8 +699,8 @@ function vAnswer(R){
       $("bk").onclick=()=>{ L.stage="theme"; rerender(); };
       $("ok").onclick=()=>{
         if(L.pick.length<3) return;
-        const used=(s.used||[]).slice(); if(!L.draft.custom) used.push(L.draft.idx);
-        O.be.update(O.id,{"state/theme":{q:L.draft.q,opts:L.draft.opts,custom:!!L.draft.custom},answer:L.pick.slice(),"state/used":used,"state/phase":"guess",guesses:null});
+        const used=(s.used||[]).slice(); if(!L.draft.custom) used.push(L.draft.id);
+        O.be.update(O.id,{"state/theme":{q:L.draft.q,opts:L.draft.opts,custom:!!L.draft.custom,deep:!!L.draft.deep},answer:L.pick.slice(),"state/used":used,"state/phase":"guess",guesses:null});
       };
     }};
   }

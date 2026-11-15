@@ -15,6 +15,7 @@
 | タン | 1つ当たり | 1 |
 
 ## ファイル
-- `themes.js` … お題（7つの選択肢）
+- `themes.js` … ふつうのお題（200問・7つの選択肢）
+- `themes_deep.js` … DEEPのお題（100問・仲良しメンバー向け）
 - `firebase-config.js` … Firebase の設定（空だとデモモード）
 - `database.rules.json` … Realtime Database のルール

@@ -219,3 +219,9 @@ table.sc .av{width:32px;height:32px}
 .mode img.ic{width:84px;height:64px;object-fit:contain;flex:none}
 .em-horse{width:120px;animation:gallop .45s infinite alternate}
 .cover-pass{display:block;width:170px;margin:0 auto 4px;background:var(--cream);border-radius:28px;padding:14px 18px}
+
+/* ===== DEEP ===== */
+.theme-q.deep{background:#d93a2f;color:#fff}
+.theme-tag.deep{background:#d93a2f}
+.seg.kind button.deep.on{background:#d93a2f;color:#fff}
+.online-badge.deep{background:#d93a2f;color:#fff}
